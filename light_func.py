@@ -92,17 +92,22 @@ def ioniz_frac(H, n_H, x, E, r_phys, T, M_pbh, M_unit):
     alpha = 2.6*10**(-13)*(T/10**4)**(-0.85) * 1e-6 # м**3/c
     ioniz_rate = np.zeros(x.size)
     recomb_rate = np.zeros(x.size)
-    for j in range(x):
+    for j in range(x.size-1):
         dt_light = (r_phys[j+1]-r_phys[j])*3e16/c # время за которое свет проходит данную ячейку
         ioniz_rate[j] = sigma_photoionizatioh * (E_0/E)**3 * H[j] * n_H[j] * (1-x[j])
-        recomb_rate[j] = alpha[j] * n_H[j] * x[j]
+        recomb_rate[j] = alpha[j] * n_H[j]**2 * x[j]**2
         x_actual = np.zeros(2)     # Переменная для расчета степени ионизации
-        x_actual[0] = 0
+        x_actual[0] = 1
         x_actual[1] = x[j]
-        while np.abs(x_actual[1]-x_actual[0])>0.001*x[0]:  # Реализация численного решения уравнения для степени ионизации
+        while np.abs(x_actual[1]-x_actual[0])>0.001*x_actual[1]:  # Реализация численного решения уравнения для степени ионизации
             x_actual[0] = x_actual[1]
-            x_actual[1] = x_actual[0] + (ioniz_rate - recomb_rate)*dt_light
-
+            x_actual[1] = x_actual[0] + (ioniz_rate[j] - recomb_rate[j])/(n_H[j])*dt_light
+            print('0', x_actual[0], 'j=', j)
+            print('1', x_actual[1])
+            print('ioniz',ioniz_rate[j])
+            print('recomb', recomb_rate[j])
+            # print('multiplier',dt_light/(n_H[j]))
+            # print(dt_light*3e-8)
             # Блок условий который удерживает x в рамках [0,1]
             if x_actual[1]<0:
                 x_actual[1] = 0
@@ -112,7 +117,7 @@ def ioniz_frac(H, n_H, x, E, r_phys, T, M_pbh, M_unit):
                 break
 
         x[j] = x_actual[1] # Новое равновесное значение x в ячейке
-
+        # print(x[j])
         # Пересчет потока излучения (функция не оптимизирована, считаются два ненужных здесь значения + лишние пространственные ячейки)
         H, dump_1, dump_2 = eddington_light(n_H, x, E, M_pbh, r_phys, M_unit)
 
