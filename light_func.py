@@ -85,13 +85,14 @@ def ioniz_frac_easy(dt, x, n_H, E, T, H):
 
     return x
 
-def ioniz_frac(H, n_H, x, E, r_phys, T, M_pbh, M_unit):
+def ioniz_frac(H, n_H, x, E, r_phys, T, M_pbh, M_unit,dt):
     # Темп ионизации
     E_0 = 13.6
     sigma_photoionizatioh = 6e-22  # м**2
     alpha = 2.6*10**(-13)*(T/10**4)**(-0.85) * 1e-6 # м**3/c
     ioniz_rate = np.zeros(x.size)
     recomb_rate = np.zeros(x.size)
+    time_of_light_sim = 0
     for j in range(x.size-1):
         dt_light = (r_phys[j+1]-r_phys[j])*3e16/c # время за которое свет проходит данную ячейку
         ioniz_rate[j] = sigma_photoionizatioh * (E_0/E)**3 * H[j] * n_H[j] * (1-x[j])
@@ -99,13 +100,14 @@ def ioniz_frac(H, n_H, x, E, r_phys, T, M_pbh, M_unit):
         x_actual = np.zeros(2)     # Переменная для расчета степени ионизации
         x_actual[0] = 1
         x_actual[1] = x[j]
-        while np.abs(x_actual[1]-x_actual[0])>0.001*x_actual[1]:  # Реализация численного решения уравнения для степени ионизации
+        while np.abs(x_actual[1]-x_actual[0])>0.01*x_actual[1]:  # Реализация численного решения уравнения для степени ионизации
             x_actual[0] = x_actual[1]
             x_actual[1] = x_actual[0] + (ioniz_rate[j] - recomb_rate[j])/(n_H[j])*dt_light
-            print('0', x_actual[0], 'j=', j)
-            print('1', x_actual[1])
-            print('ioniz',ioniz_rate[j])
-            print('recomb', recomb_rate[j])
+            # if j==0:
+            #     print('0', x_actual[0], 'j=', j)
+            #     print('1', x_actual[1])
+            #     print('ioniz',ioniz_rate[j])
+            #     print('recomb', recomb_rate[j])
             # print('multiplier',dt_light/(n_H[j]))
             # print(dt_light*3e-8)
             # Блок условий который удерживает x в рамках [0,1]
@@ -115,7 +117,10 @@ def ioniz_frac(H, n_H, x, E, r_phys, T, M_pbh, M_unit):
             elif x_actual[1]>1:
                 x_actual[1] = 1
                 break
-
+            time_of_light_sim += dt_light
+            # Условие, чтобы вычисления не выходили за пределы основного шага по времени
+            if time_of_light_sim>=dt:
+                break
         x[j] = x_actual[1] # Новое равновесное значение x в ячейке
         # print(x[j])
         # Пересчет потока излучения (функция не оптимизирована, считаются два ненужных здесь значения + лишние пространственные ячейки)
